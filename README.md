@@ -2,7 +2,7 @@
 IFSC code Generator for SBI banks near you
 
 Requirements:Node.js,Mongodb,A browser
-After installing and configuring node.js and mongodb do
+After installing and configuring node.js and mongodb open the project directory and do
 ```
 npm install
 ```
