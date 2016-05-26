@@ -1,84 +1,65 @@
-//
-// # SimpleServer
-//
-// A simple chat server using Socket.IO, Express, and Async.
-//
-var http = require('http');
-var path = require('path');
-
-var async = require('async');
-var socketio = require('socket.io');
 var express = require('express');
+var bodyParser = require('body-parser');
+var app     = express();
 
-//
-// ## SimpleServer `SimpleServer(obj)`
-//
-// Creates a new instance of SimpleServer with the following options:
-//  * `port` - The HTTP port to listen on. If `process.env.PORT` is set, _it overrides this value_.
-//
-var router = express();
-var server = http.createServer(router);
-var io = socketio.listen(server);
 
-router.use(express.static(path.resolve(__dirname, 'client')));
-var messages = [];
-var sockets = [];
+app.use(bodyParser.urlencoded({ extended: true })); 
 
-io.on('connection', function (socket) {
-    messages.forEach(function (data) {
-      socket.emit('message', data);
-    });
 
-    sockets.push(socket);
 
-    socket.on('disconnect', function () {
-      sockets.splice(sockets.indexOf(socket), 1);
-      updateRoster();
-    });
+app.post('/ifsc', function(req, res) {
+    var MongoClient = require('mongodb').MongoClient;
+var url = 'mongodb://localhost:27017/banks';
+MongoClient.connect(url, function (err, db) {
+    if(err){
+    console.log('Unable to connect to the mongoDB server. Error:', err);
+  } else {
+ 
+    console.log('Connection established to', url);
 
-    socket.on('message', function (msg) {
-      var text = String(msg || '');
+  
+  //  var bankAddr ="SAMRIDDHI BHAVAN, 4TH FLOOR, 1, STRAND ROAD, KOLKATA - 700001";
+  var latitude = parseFloat(req.body.lati);
+  var longitude = parseFloat(req.body.long);
+ var arr= [longitude,latitude];
+// console.log(arr);
+   // console.log(db.collection("sbi").find({"ADDRESS":bankAddr}).toArray());
+   // var cursor = db.collection("sbi").find({loc: {$near:arr}}).limit(9);
+   var cursor = db.collection("sbi").find({loc: {$near:arr,$maxDistance:30/111.12}}).limit(9);
+    cursor.toArray(function(err,docs){
+        console.log(docs);
+       if(err){
+            throw err;
+        }
+        if(docs.length>0){
+            res.write("<html>");
+        docs.forEach(function(doc) {
+           // res.send("Bank: "+doc['BANK']+"\n \n"+"Branch: "+doc['BRANCH']+"\n\n"+"Address: "+doc['ADDRESS']+"\n\n"+"IFSC code:"+doc['IFSC']);
+          res.write("<p>Bank:"+doc['bank']+"</p>"+"<p>Branch:"+doc['branch']+"</p>"+"<p>Address:"+doc['address']+"</p>"+"<p>IFSC code:"+doc['ifsc']+"</p>");
+        
+            res.write("<hr>");
+        });
+         res.write("</html>");
+         res.end();
+        }
+        else{
+            res.send("No records found");
+            res.end();
+        }
+        db.close();
+         //Close connection
+            
+        });
+    
 
-      if (!text)
-        return;
+   
+     
+  }
 
-      socket.get('name', function (err, name) {
-        var data = {
-          name: name,
-          text: text
-        };
+});
 
-        broadcast('message', data);
-        messages.push(data);
-      });
-    });
+});
 
-    socket.on('identify', function (name) {
-      socket.set('name', String(name || 'Anonymous'), function (err) {
-        updateRoster();
-      });
-    });
-  });
-
-function updateRoster() {
-  async.map(
-    sockets,
-    function (socket, callback) {
-      socket.get('name', callback);
-    },
-    function (err, names) {
-      broadcast('roster', names);
-    }
-  );
-}
-
-function broadcast(event, data) {
-  sockets.forEach(function (socket) {
-    socket.emit(event, data);
-  });
-}
-
-server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function(){
-  var addr = server.address();
-  console.log("Chat server listening at", addr.address + ":" + addr.port);
+app.listen(8081, function() {
+  console.log('Server running at http://127.0.0.1:8081/');
 });
